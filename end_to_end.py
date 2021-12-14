@@ -18,27 +18,32 @@ loss_fn = keras.losses.SparseCategoricalCrossentropy(from_logits=True)
 # Prepare the training dataset.
 batch_size = 64
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-x_train = np.reshape(x_train, (-1, 784))
-x_test = np.reshape(x_test, (-1, 784))
+x_train = np.reshape(x_train, (-1, 784))   #(60000, 784)
+x_test = np.reshape(x_test, (-1, 784))      #(10000, 784)
 
 # Prepare the metrics.
 train_acc_metric = keras.metrics.SparseCategoricalAccuracy()
 val_acc_metric = keras.metrics.SparseCategoricalAccuracy()
-
+"""
 # Reserve 10,000 samples for validation.
-x_val = x_train[-10000:]
-y_val = y_train[-10000:]
-x_train = x_train[:-10000]
-y_train = y_train[:-10000]
+x_val = x_train[-10000:]        #(10000, 784)
+y_val = y_train[-10000:]        #(10000, )
+x_train = x_train[:-10000]      #(50000, 784)
+y_train = y_train[:-10000]      #(50000,)
+"""
+#print(x_val.shape)
+#print(y_val.shape)
 
 # Prepare the training dataset.
-train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))
-train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)
+train_dataset = tf.data.Dataset.from_tensor_slices((x_train, y_train))      #[x_train, y_train]
+train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)   #put in buffer 1024 data 
+#combines(divide) consecutive elements into batches. 
+#print(train_dataset)
 
 # Prepare the validation dataset.
-val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
+#val_dataset = tf.data.Dataset.from_tensor_slices((x_val, y_val))
+val_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
 val_dataset = val_dataset.batch(batch_size)
-
 
 epochs = 2
 for epoch in range(epochs):
