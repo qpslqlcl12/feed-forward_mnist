@@ -45,7 +45,7 @@ train_dataset = train_dataset.shuffle(buffer_size=1024).batch(batch_size)   #put
 val_dataset = tf.data.Dataset.from_tensor_slices((x_test, y_test))
 val_dataset = val_dataset.batch(batch_size)
 
-epochs = 2
+epochs = 1
 for epoch in range(epochs):
     print("\nStart of epoch %d" % (epoch,))
     start_time = time.time()
@@ -62,7 +62,7 @@ for epoch in range(epochs):
             # to its inputs are going to be recorded
             # on the GradientTape.
             logits = model(x_batch_train, training=True)  # Logits for this minibatch
-
+            #print(logits)
             # Compute the loss value for this minibatch.
             loss_value = loss_fn(y_batch_train, logits)
 
