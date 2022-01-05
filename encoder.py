@@ -45,7 +45,7 @@ def feed_forward(input,w1,w2):
     #print(h1)
     out=tf.matmul(h1,w2)
     out=tf.keras.activations.sigmoid(out)
-    return out
+    return out,w1,w2
 
 def loss(input,w1,w2,actual_value):
     prediction=feed_forward(input,w1,w2)
@@ -65,10 +65,11 @@ input, w1, w2 = network_initializer(label, data_5)
 
 
 for i in range(10):
-    prediction = feed_forward(input, w1, w2)
+    prediction,w_buffer1,w_buffer2 = feed_forward(input, w1, w2)
     print(i,"th iteration")
     print("prediction: ", prediction)    
-
+    print("w_buffer1:", w_buffer1)
+    print("w_buffer2:", w_buffer2)
     #training
     loss_value, grad_weight1, grad_weight2=grad(input, w1,w2)
     print("loss_value:", loss_value)
