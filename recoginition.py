@@ -22,7 +22,6 @@ actual_value=label
 actual_value=tf.expand_dims(actual_value,0)
 #input = tf.Variable(tf.zeros(shape=(5), dtype=tf.float32))
 #print("input", input)
-
 #def data_preprocessing():
 
 w1=[]
@@ -62,7 +61,7 @@ def backward_pass(encoder_buffer,w1,w2):
     input=tf.matmul(h1,w1)
     input=tf.keras.activations.sigmoid(input)
     return input
-
+"""
 def loss(input,w1,w2,actual_value):
     prediction,dummy1,dummy2=forward_pass(input,w1,w2)
     
@@ -70,6 +69,13 @@ def loss(input,w1,w2,actual_value):
     #print("actual", actual_value)
     
     loss_value=loss_fn(actual_value, prediction)
+    return loss_value
+"""
+def contrastive_loss(encoded_query_data, retrieved_TCAM_data, similar, Dw):
+    margin=1.25
+    print("marginho")
+    loss_value=(similar)*(0.5)*(tf.square(Dw))+(1-similar)*tf.square((0.5)*(tf.math.maximum(0.,margin-Dw)))
+    print(loss_value)
     return loss_value
 
 def grad(input,w1,w2):
@@ -90,7 +96,8 @@ def TCAM_retrieve(encoded_query_data):
         #print("stored:",stored_data)
         dist1.append(Minkowski_distance(encoded_query_data, stored_data))
     #print("dist1:", dist1)
-    min_dist=dist1.index(min(dist1))
+    min_dist_value=min(dist1)
+    min_dist_index=dist1.index(min_dist_value)
     #print("min_dist: ", min_dist )
         #if dist1 < dist2 :
             #dist2=dist1
@@ -99,7 +106,7 @@ def TCAM_retrieve(encoded_query_data):
     #dist1=Minkowski_distance(encoded_query_data, TCAM_array)
     #print("current_dist:", dist1)
     
-    return TCAM_array[min_dist], min_dist
+    return TCAM_array[min_dist_index], min_dist_value
 
 def Minkowski_distance(x,y):
     #print(x)
@@ -111,7 +118,7 @@ def Minkowski_distance(x,y):
 input, w1, w2 = network_initializer(label, data_5)
 #print("input:", input)
 
-for i in range(6):
+for i in range(4):
     #inference
     prediction,w1,w2 = forward_pass(input, w1, w2)
     #print(i,"th iteration")
@@ -135,3 +142,5 @@ print("query_data: ", prediction)
 TCAM_buffer, distance=TCAM_retrieve(prediction)
 print("retrieved_data: ", TCAM_buffer)
 print("distance:", distance)
+contrastive_loss_value=contrastive_loss(prediction,TCAM_buffer,1.0,distance)
+print("contrastive loss test :", contrastive_loss_value)
