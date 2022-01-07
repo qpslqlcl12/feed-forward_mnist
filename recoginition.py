@@ -3,7 +3,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
 import time
-import pandas as pd
+
 
 np.set_printoptions(precision=6, suppress=True)
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
@@ -32,6 +32,9 @@ TCAM_buffer=[]
 reverse_prediction=[]
 TCAM_array=[]
 
+loss_fn=tf.keras.losses.MeanSquaredError()
+opt=tf.keras.optimizers.Adam(learning_rate=0.01)
+
 def network_initializer(label, data_5):
     conc=tf.concat([label,data_5], 0)
     #print("conc shape", conc.shape)
@@ -42,10 +45,6 @@ def network_initializer(label, data_5):
     #print("weight",w1)    
     w2=tf.Variable(tf.random.uniform([400,10],-1,1), trainable=True, name='w2')
     return input, w1, w2
-
-loss_fn=tf.keras.losses.MeanSquaredError()
-opt=tf.keras.optimizers.Adam(learning_rate=0.01)
-
 
 def forward_pass(input,w1,w2):
     h1=tf.matmul(input,w1)    
@@ -89,21 +88,22 @@ def TCAM_retrieve(encoded_query_data):
     #print("here:", TCAM_array)
     for stored_data in TCAM_array:
         #print("stored:",stored_data)
-        dist1=Minkowski_distance(encoded_query_data, stored_data)
-        print("dist1:", dist1)
-        if dist1 < dist2 :
-            dist2=dist1
-            print("muyaho", dist2)
-            
-    
+        dist1.append(Minkowski_distance(encoded_query_data, stored_data))
+    #print("dist1:", dist1)
+    min_dist=dist1.index(min(dist1))
+    #print("min_dist: ", min_dist )
+        #if dist1 < dist2 :
+            #dist2=dist1
+            #print("muyaho", dist2)           
+    #print("min_TCAM_array:", TCAM_array[min_dist])
     #dist1=Minkowski_distance(encoded_query_data, TCAM_array)
-    print("current_dist:", dist1)
-    print("min_dist: ", dist2 )
-    return dist1
+    #print("current_dist:", dist1)
+    
+    return TCAM_array[min_dist], min_dist
 
 def Minkowski_distance(x,y):
-    print(x)
-    print(y)
+    #print(x)
+    #print(y)
     dist=tf.sqrt(tf.reduce_sum(tf.square(x-y)))
     #print("distance: ", dist)
     return dist
@@ -111,11 +111,11 @@ def Minkowski_distance(x,y):
 input, w1, w2 = network_initializer(label, data_5)
 #print("input:", input)
 
-for i in range(4):
+for i in range(6):
     #inference
     prediction,w1,w2 = forward_pass(input, w1, w2)
-    print(i,"th iteration")
-    print("prediction: ", prediction)    
+    #print(i,"th iteration")
+    #print("prediction: ", prediction)    
     
     #encoder_buffer=prediction
     #reverse_prediction=backward_pass(encoder_buffer,w1,w2)
@@ -128,8 +128,10 @@ for i in range(4):
     TCAM_store(prediction)
     #print("TCAM stored: ",TCAM_array)
     
-
+print("TCAM data:", TCAM_array)
 #print("dist:",Minkowski_distance(prediction,label))
-
-TCAM_buffer=TCAM_retrieve(prediction)
-#print("retrieved_data: ", TCAM_buffer)
+prediction,w1,w2 = forward_pass(input, w1, w2)
+print("query_data: ", prediction)
+TCAM_buffer, distance=TCAM_retrieve(prediction)
+print("retrieved_data: ", TCAM_buffer)
+print("distance:", distance)
