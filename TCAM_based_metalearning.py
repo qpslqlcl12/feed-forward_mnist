@@ -3,14 +3,39 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import numpy as np
 import time
-
+import random
 
 np.set_printoptions(precision=6, suppress=True)
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 x_train = x_train.reshape(60000, 784).astype("float32") / 255
 x_test = x_test.reshape(10000, 784).astype("float32") / 255
-#print("xtrain", x_train[31])
-#print("ytrain", y_train[31])
+"""
+fashion_mnist = tf.keras.datasets.fashion_mnist
+(train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
+"""
+
+training_label_list=[0,1,2,3,4,5,6,7,8,9]
+#training_label_list.append(random.randint(0,9))
+training_label_list=random.sample(training_label_list,4)
+print("random",training_label_list)
+#rad=np.random.choice(y_train,4,replace=False)
+#print("rad",rad)
+
+
+support_data_set=[]
+for j in training_label_list:
+    while len(support_data_set) <=4:
+        random_label=random.randint(0,59999)        
+        if j == y_train[random_label]:
+            print("randomlabel",random_label)
+            support_data_set.append(x_train[random_label])
+            print("label:", y_train[random_label])
+       
+print("support_data_set", len(support_data_set))
+
+
+#def support_set_sampling():
+    
 
 #support data set
 data_0=x_train[1]
@@ -55,7 +80,7 @@ support_data_set=[]
 query_input=[]
 
 opt=tf.keras.optimizers.Adam(learning_rate=0.01)
-def data_preprocessing():
+def data_preprocessing(way):
     
     data_00=tf.concat([way_0,data_0],0)
     data_11=tf.concat([way_1,data_1],0)
@@ -71,16 +96,24 @@ def data_preprocessing():
     support_data_set.append(data_11)
     support_data_set.append(data_33)
     support_data_set.append(data_55)
-
-    Qdata_00=tf.concat([empty_label,Qdata_0],0)
-    query=tf.expand_dims(Qdata_00,0)
-    
+    if way == 0:
+        Qdata_00=tf.concat([empty_label,Qdata_0],0)
+        query=tf.expand_dims(Qdata_00,0)
+    elif way == 1:
+        Qdata_11=tf.concat([empty_label,Qdata_1],0)
+        query=tf.expand_dims(Qdata_11,0)
+    elif way == 2:
+        Qdata_33=tf.concat([empty_label,Qdata_3],0)
+        query=tf.expand_dims(Qdata_33,0)
+    else:
+        Qdata_55=tf.concat([empty_label,Qdata_5],0)
+        query=tf.expand_dims(Qdata_55,0)
     return query
 
 def network_initializer():   
-    ini_w1=tf.Variable(tf.random.uniform([788,500],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([500,300],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([300,100],-1,1), trainable=True)
+    ini_w1=tf.Variable(tf.random.uniform([788,400],-1,1), trainable=True)      
+    ini_w2=tf.Variable(tf.random.uniform([400,200],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([200,10],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3
 
 def forward_pass(input,fw1,fw2,fw3):
@@ -130,15 +163,15 @@ def TCAM_retrieve(encoded_query_data):
         dist1.append(Minkowski_distance(encoded_query_data, stored_data))
     min_dist_value=min(dist1)
     min_dist_index=dist1.index(min_dist_value)
-    return TCAM_array[min_dist_index], min_dist_value
+    return TCAM_array[min_dist_index], min_dist_value, min_dist_index
 
 def Minkowski_distance(x,y):
     dist=tf.sqrt(tf.reduce_sum(tf.square(x-y)))    
     return dist
 
+query_way=2
+query_input=data_preprocessing(query_way)
 
-
-query_input=data_preprocessing()
 #sequence
 w1, w2, w3 = network_initializer()
 
@@ -150,13 +183,14 @@ for support_input in support_data_set:
 
 #query
 encoder_buffer,w1,w2,w3 = forward_pass(query_input,w1,w2,w3)
-TCAM_buffer, distance_btw_query_mostsimilarTCAM = TCAM_retrieve(encoder_buffer)
+TCAM_buffer, distance_btw_query_mostsimilarTCAM, which_way = TCAM_retrieve(encoder_buffer)
+print("retrieved_way: ", which_way)
 
+"""
 #backward pass
 backward_output=backward_pass(TCAM_buffer,w1,w2,w3)
 print("way_0:",way_0)
 print("backward_output:", tf.slice(backward_output,[0,0],[1,4]))
-
 
 #meta_training
 for epoch in range(10):       
@@ -166,8 +200,6 @@ for epoch in range(10):
         print("loss:",loss_value)
     #print("grad sum:", tf.reduce_sum(grad_weight1))
     opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3],[w1,w2,w3]))
-
-
 
 #query
 encoder_buffer,w1,w2,w3 = forward_pass(query_input,w1,w2,w3)
@@ -185,6 +217,6 @@ print("label:",backward_output_label)
 query_label=tf.argmax(way_0)
 print("q_label:", query_label)
 
-
 #validation
 
+"""
