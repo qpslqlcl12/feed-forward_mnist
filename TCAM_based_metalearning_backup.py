@@ -9,24 +9,13 @@ import matplotlib.pyplot as plt
 start_time = time.time()
 
 np.set_printoptions(precision=6, suppress=True)
-
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 x_train = x_train.reshape(60000, 784).astype("float32") / 255
 x_test = x_test.reshape(10000, 784).astype("float32") / 255
-
-(ftrain_images, ftrain_labels), (ftest_images, ftest_labels) = keras.datasets.fashion_mnist.load_data()
-ftrain_images = ftrain_images.reshape(60000, 784).astype("float32") / 255
-ftest_images = ftest_images.reshape(10000, 784).astype("float32") / 255
-
-(cifar_train_images, cifar_train_labels), (cifar_test_images, cifar_test_labels) = keras.datasets.cifar10.load_data()
-cifar_train_images=tf.image.rgb_to_grayscale(cifar_train_images)
-plt.figure()
-plt.imshow(cifar_train_images[12])
-plt.savefig('cifar_10.png')
-print("label", cifar_train_labels[12])
-#cifar_train_images = cifar_train_images.reshape(50000, 784).astype("float32") / 255
-#cifar_test_images = cifar_test_images.reshape(10000, 784).astype("float32") / 255
-
+"""
+fashion_mnist = tf.keras.datasets.fashion_mnist
+(train_images, train_labels), (test_images, test_labels) = fashion_mnist.load_data()
+"""
 
 #label for 4 way 
 way_0 = tf.Variable([1.,0.,0.,0.])
@@ -46,7 +35,7 @@ TCAM_array=[]
 backward_output=[]
 support_data_set=[]
 query_input=[]
-opt=tf.keras.optimizers.Adam(learning_rate=0.0001)
+opt=tf.keras.optimizers.Adam(learning_rate=0.001)
 
 way.append(way_0)
 way.append(way_1)
@@ -55,15 +44,15 @@ way.append(way_3)
 
 
 def testing_data_set_sampling():
-    random_label_list=set(ftest_labels)
+    random_label_list=set(y_test)
     random_label_list=random.sample(random_label_list,4)
     #print("training_label_list:", random_label_list)
     sampling_support_data_set=[]
     for i in random_label_list: 
         while len(sampling_support_data_set) <= 4:
             random_label=random.randint(0,9999)
-            if i == ftest_labels[random_label]:            
-                sampling_support_data_set.append(ftest_images[random_label])           
+            if i == y_test[random_label]:            
+                sampling_support_data_set.append(x_test[random_label])           
                 break
     query_label=random.sample(random_label_list,1)
     #print("q_label",query_label)
@@ -73,8 +62,8 @@ def testing_data_set_sampling():
     for i in query_label: 
         while len(query_data_set) <= 1:
             random_label=random.randint(0,9999)
-            if i == ftest_labels[random_label]:            
-                query_data_set.append(ftest_images[random_label])           
+            if i == y_test[random_label]:            
+                query_data_set.append(x_test[random_label])           
                 break
     #print("query data set",query_data_set)
 
@@ -113,8 +102,6 @@ def data_preprocessing_for_testing(way_buf, data_set, q_data_set):
     empty_label = tf.Variable([0.,0.,0.,0.])
     data_buffer=[]    
     for i,j in zip(way_buf,data_set):
-        #print("way_buf",way_buf)
-        #print("data_set",data_set)
         sampled_data=tf.concat([i,j],0)
         sampled_data=tf.expand_dims(sampled_data,0)
         data_buffer.append(sampled_data)
@@ -138,9 +125,9 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
     return data_buffer,query_data_buffer
 
 def network_initializer():   
-    ini_w1=tf.Variable(tf.random.uniform([788,400],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([400,200],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([200,50],-1,1), trainable=True)
+    ini_w1=tf.Variable(tf.random.uniform([788,500],-1,1), trainable=True)      
+    ini_w2=tf.Variable(tf.random.uniform([500,300],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([300,100],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3
 
 def forward_pass(input,fw1,fw2,fw3):
@@ -266,7 +253,7 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 #w1,w2,w3=meta_training(w1,w2,w3)
 accuracy_list=[]
 loss_list=[]
-epoch=1
+epoch=10000
 max_acc=0
 for epoches in range(epoch):
     acc=meta_testing(w1,w2,w3)
