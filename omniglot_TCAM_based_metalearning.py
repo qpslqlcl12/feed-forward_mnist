@@ -5,35 +5,12 @@ import numpy as np
 import time
 import random
 import matplotlib.pyplot as plt
+import os
 
 start_time = time.time()
 
 np.set_printoptions(precision=6, suppress=True)
-
-(x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
-x_train = x_train.reshape(60000, 784).astype("float32") / 255
-x_test = x_test.reshape(10000, 784).astype("float32") / 255
-
-(ftrain_images, ftrain_labels), (ftest_images, ftest_labels) = keras.datasets.fashion_mnist.load_data()
-ftrain_images = ftrain_images.reshape(60000, 784).astype("float32") / 255
-ftest_images = ftest_images.reshape(10000, 784).astype("float32") / 255
-
-(cifar_train_images, cifar_train_labels), (cifar_test_images, cifar_test_labels) = keras.datasets.cifar10.load_data()
-cifar_train_images=tf.image.rgb_to_grayscale(cifar_train_images)
-plt.figure()
-plt.imshow(cifar_train_images[12])
-plt.savefig('cifar_10.png')
-print("label", cifar_train_labels[12])
-#cifar_train_images = cifar_train_images.reshape(50000, 784).astype("float32") / 255
-#cifar_test_images = cifar_test_images.reshape(10000, 784).astype("float32") / 255
-
-
-#label for 4 way 
-way_0 = tf.Variable([1.,0.,0.,0.])
-way_1 = tf.Variable([0.,1.,0.,0.])
-way_2 = tf.Variable([0.,0.,1.,0.])
-way_3 = tf.Variable([0.,0.,0.,1.])
-
+#np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 
 way=[]
 w1=[]
@@ -48,57 +25,103 @@ support_data_set=[]
 query_input=[]
 opt=tf.keras.optimizers.Adam(learning_rate=0.001)
 
+#label for 4 way 
+way_0 = tf.Variable([1.,0.,0.,0.])
+way_1 = tf.Variable([0.,1.,0.,0.])
+way_2 = tf.Variable([0.,0.,1.,0.])
+way_3 = tf.Variable([0.,0.,0.,1.])
 way.append(way_0)
 way.append(way_1)
 way.append(way_2)
 way.append(way_3)
 
 
-def testing_data_set_sampling():
-    random_label_list=set(ftest_labels)
-    random_label_list=random.sample(random_label_list,4)
-    sampling_support_data_set=[]
-    for i in random_label_list: 
-        while len(sampling_support_data_set) <= 4:
-            random_label=random.randint(0,9999)
-            if i == ftest_labels[random_label]:            
-                sampling_support_data_set.append(ftest_images[random_label])           
-                break
-    query_label=random.sample(random_label_list,1)
-    sampling_query_way=random_label_list.index(query_label)    
-    query_data_set=[]
-    for i in query_label: 
-        while len(query_data_set) <= 1:
-            random_label=random.randint(0,9999)
-            if i == ftest_labels[random_label]:            
-                query_data_set.append(ftest_images[random_label])           
-                break
- 
+def load_img(fn):
+    I=plt.imread(fn)
+    I=np.array(I,dtype=bool)
+    I=np.invert(I)
+    I=I.astype('float32')
+    I=I.flatten()
+    #print(I.shape)
+    return I
 
-    return random_label_list,sampling_support_data_set,query_label,query_data_set,sampling_query_way
+
+def testing_data_set_sampling():
+    testing_img_dir = '../omniglot/python/images_evaluation'
+    nalpha = 4 # number of alphabets to show
+    alphabet_names = [a for a in os.listdir(testing_img_dir) if a[0] != '.'] # get folder names
+    alphabet_names = random.sample(alphabet_names,nalpha) # choose random alphabets
+    #print("alpha")
+    #print(alphabet_names)
+    pick_query=random.randint(0,3)
+   
+    sampling_support_data_set=[]
+    #sampling_query_data_set=[]
+    random_label_list=alphabet_names 
+    #print(random_label_list)
+    for character in alphabet_names:
+        character_id = random.randint(1,len(os.listdir(os.path.join(testing_img_dir,character))))
+        string=str(character_id)
+        img_char_dir = os.path.join(testing_img_dir,character,'character'+ string.zfill(2))
+        support=random.randint(0,15)        
+       
+        support_set=os.listdir(img_char_dir)[support]           
+       
+        support_image=img_char_dir + '/' + support_set        
+        #print(support_image)
+        testing_support_set=load_img(support_image)     
+        
+        sampling_support_data_set.append(testing_support_set)        
+        
+        if alphabet_names[pick_query] == character:
+            query=random.randint(16,19)
+            query_set=os.listdir(img_char_dir)[query]   
+            query_image=img_char_dir + '/' + query_set
+            query_label=character
+    testing_query_set=load_img(query_image)
+    #print("test query set")
+    #print(query_image)  
+    sampling_query_way=random_label_list.index(query_label)
+    #print("check")
+    #print(sampling_query_way)
+        
+
+    return random_label_list,sampling_support_data_set,query_label,testing_query_set,sampling_query_way
 
 def training_data_set_sampling():
-    random_label_list=set(y_train)
-    random_label_list=random.sample(random_label_list,4)   
+    training_img_dir = '../omniglot/python/images_background'    
+    nalpha = 4 # number of alphabets to show
+    alphabet_names = [a for a in os.listdir(training_img_dir) if a[0] != '.'] # get folder names
+    alphabet_names = random.sample(alphabet_names,nalpha) # choose random alphabets
+    #print(alphabet_names) # 4 kinds of random alphabet
     sampling_support_data_set=[]
-    for i in random_label_list: 
-        while len(sampling_support_data_set) <= 4:
-            random_label=random.randint(0,59999)
-            if i == y_train[random_label]:            
-                sampling_support_data_set.append(x_train[random_label])           
-                break
+    sampling_query_data_set=[]
+    random_label_list=alphabet_names 
+    #print(random_label_list)
+    for character in alphabet_names:
+        character_id = random.randint(1,len(os.listdir(os.path.join(training_img_dir,character))))
+        string=str(character_id)
+        img_char_dir = os.path.join(training_img_dir,character,'character'+ string.zfill(2))
+        support=random.randint(0,15)
+        query=random.randint(16,19)
+       
+        support_set=os.listdir(img_char_dir)[support]
+        query_set=os.listdir(img_char_dir)[query]       
+       
+        support_image=img_char_dir + '/' + support_set
+        query_image=img_char_dir + '/' + query_set
+        
+        training_support_set=load_img(support_image)
+        training_query_set=load_img(support_image)
+        
+        sampling_support_data_set.append(training_support_set)
+        sampling_query_data_set.append(training_query_set)
 
-    query_label=random_label_list    
-    sampling_query_way=[0,1,2,3]    
-    query_data_set=[]
-    for i in query_label: 
-        while len(query_data_set) <= 4:
-            random_label=random.randint(0,59999)
-            if i == y_train[random_label]:            
-                query_data_set.append(x_train[random_label])           
-                break   
-
-    return random_label_list,sampling_support_data_set,query_label,query_data_set, sampling_query_way
+    #print(sampling_support_data_set)
+    #print(sampling_query_data_set)  
+    sampling_query_way=[0,1,2,3]        
+   
+    return random_label_list,sampling_support_data_set,query_set,sampling_query_data_set, sampling_query_way
 
 
 
@@ -131,9 +154,9 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
     return data_buffer,query_data_buffer
 
 def network_initializer():   
-    ini_w1=tf.Variable(tf.random.uniform([788,400],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([400,200],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([200,50],-1,1), trainable=True)
+    ini_w1=tf.Variable(tf.random.uniform([11029,5000],-1,1), trainable=True)      
+    ini_w2=tf.Variable(tf.random.uniform([5000,1000],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([1000,100],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3
 
 def forward_pass(input,fw1,fw2,fw3):
@@ -220,7 +243,8 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3):
         encoder_buffer,w1,w2,w3 = forward_pass(query_data,w1,w2,w3)
         TCAM_buffer, distance_btw_query_mostsimilarTCAM, which_way = TCAM_retrieve(encoder_buffer)
         if(testing%50 == 0):
-            print("support_label",support_label_list)
+            print("testing_support_label",support_label_list)
+            print("query_label", query_label)
             print("query_way",query_way)
             print("retrieved_way: ", which_way)  
         if query_way == which_way:
@@ -235,6 +259,11 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 #meta_training, in training seq, query is set of all the ways.
     support_label_list,support_buff,query_label,query_data_buff,query_way = training_data_set_sampling() 
     support_data_set,query_data=data_preprocessing_for_training(way,support_buff,query_data_buff) 
+    #print("support_set")
+    #print(support_label_list)
+    #print(support_data_set)
+    #print(query_label)
+
 
     for support_input in support_data_set:    
         encoder_buffer,weight_buf1,weight_buf2,weight_buf3 = forward_pass(support_input,weight_buf1,weight_buf2,weight_buf3)
@@ -249,12 +278,16 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
     #print("count",count)
     return weight_buf1,weight_buf2,weight_buf3, loss_value
 
+
+testing_data_set_sampling()
+
+
 #ac=meta_testing(w1,w2,w3)
 #print(ac)
 #w1,w2,w3=meta_training(w1,w2,w3)
 accuracy_list=[]
 loss_list=[]
-epoch=1
+epoch=10000
 max_acc=0
 for epoches in range(epoch):
     acc=meta_testing(w1,w2,w3)
@@ -280,37 +313,5 @@ print("maximum_accuracy", max_acc)
 
 print("Running time: {:.4f}min".format((time.time()-start_time)/60))
 #end of code
-"""
-#backward pass
-backward_output=backward_pass(TCAM_buffer,w1,w2,w3)
-print("way_0:",way_0)
-print("backward_output:", tf.slice(backward_output,[0,0],[1,4]))
 
-#meta_training
-for epoch in range(10):       
-    grad_weight1,grad_weight2,grad_weight3,loss_value = grad(query_input,w1,w2,w3)
-    #print("grad:", grad_weight1)
-    if (epoch % 5) == 0:
-        print("loss:",loss_value)
-    #print("grad sum:", tf.reduce_sum(grad_weight1))
-    opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3],[w1,w2,w3]))
 
-#query
-encoder_buffer,w1,w2,w3 = forward_pass(query_input,w1,w2,w3)
-TCAM_buffer, distance_btw_query_mostsimilarTCAM = TCAM_retrieve(encoder_buffer)
-#backward pass
-backward_output=backward_pass(TCAM_buffer,w1,w2,w3)
-
-backward_output_label=tf.slice(backward_output,[0,0],[1,4])
-backward_output_label=tf.squeeze(backward_output_label)
-backward_output_label=tf.argmax(backward_output_label)
-print("way_0:",way_0)
-print("backward_output:", tf.slice(backward_output,[0,0],[1,4]))
-print("label:",backward_output_label)
-
-query_label=tf.argmax(way_0)
-print("q_label:", query_label)
-
-#validation
-
-"""
