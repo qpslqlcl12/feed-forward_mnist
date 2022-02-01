@@ -159,7 +159,7 @@ def backward_pass(eQD_buffer,bw1,bw2,bw3):
     return input
 
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,query_way_buff):
-    margin=20.0
+    margin=10.0
     encoded_data,lw1,lw2,lw3 = forward_pass(encoded_query_data,cw1,cw2,cw3)
     retrieved_data, dist_btw_eQD_rD, retrieved_way = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
@@ -210,7 +210,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
     count=0
     answer=0
     repeat=0
-    for testing in range(100):
+    for testing in range(2):
         count=count+1
         support_label_list,support_buff,query_label,query_data_buff,query_way = testing_data_set_sampling()
         support_data_set,query_data=data_preprocessing_for_testing(way,support_buff,query_data_buff) 
@@ -218,6 +218,13 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
         for support_input,label in zip(support_data_set, support_label_list):            
             encoder_buffer,w1,w2,w3 = forward_pass(support_input, weight_buf1,weight_buf2,weight_buf3)
             TCAM_store(encoder_buffer)
+            """
+            print("encoder buffer:", encoder_buffer)
+            plt.figure(figsize=(10,10))
+            plt.scatter(encoder_buffer[:,0],encoder_buffer[:,1],c=label, cmap='viridis')
+            plt.colorbar()
+            plt.savefig('colorbar test')
+            """
             if (save_trigger ==1) and testing == 99 :
                 qd=tf.slice(support_input,[0,3],[1,784])
                 qd=tf.reshape(qd,[28,28])   
@@ -227,7 +234,8 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
 
                 edb=tf.reshape(encoder_buffer,[10,10])
                 plt.imshow(edb, cmap='gray')
-                plt.savefig('./figures/'+repeat+'encoder_buffer_init.png')
+                plt.savefig('./figures/'+repeat+'encoder_buffer_init.png')                
+
             if save_trigger == 2 and testing == 99:
                 qd=tf.slice(support_input,[0,3],[1,784])
                 qd=tf.reshape(qd,[28,28])   
@@ -266,7 +274,7 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 
     for query_data_sample,query_way_list in zip(query_data,query_way):
         grad_weight1,grad_weight2,grad_weight3,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,query_way_list)
-        print("loss:",loss_value)                
+        print("loss:",loss_value)               
         opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3],[weight_buf1,weight_buf2,weight_buf3]))
         count=count+1
     TCAM_array.clear()
@@ -278,12 +286,12 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 #w1,w2,w3=meta_training(w1,w2,w3)
 accuracy_list=[]
 loss_list=[]
-epoch=2100
+epoch=2
 max_acc=0
 min_loss=0
 trigger=0
 for epoches in range(epoch):
-    if epoches == 10:
+    if epoches == 200:
         trigger=1
     if epoches == 2000:
         trigger=2
