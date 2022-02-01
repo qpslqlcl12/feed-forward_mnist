@@ -5,28 +5,29 @@ import numpy as np
 import time
 import random
 import matplotlib.pyplot as plt
+#from PIL import Image
 
 start_time = time.time()
 
 np.set_printoptions(precision=6, suppress=True)
-
+np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 (x_train, y_train), (x_test, y_test) = keras.datasets.mnist.load_data()
 x_train = x_train.reshape(60000, 784).astype("float32") / 255
 x_test = x_test.reshape(10000, 784).astype("float32") / 255
 
+"""
 (ftrain_images, ftrain_labels), (ftest_images, ftest_labels) = keras.datasets.fashion_mnist.load_data()
 ftrain_images = ftrain_images.reshape(60000, 784).astype("float32") / 255
 ftest_images = ftest_images.reshape(10000, 784).astype("float32") / 255
-
+"""
+"""
 (cifar_train_images, cifar_train_labels), (cifar_test_images, cifar_test_labels) = keras.datasets.cifar10.load_data()
 cifar_train_images=tf.image.rgb_to_grayscale(cifar_train_images)
 plt.figure()
 plt.imshow(cifar_train_images[12])
 plt.savefig('cifar_10.png')
 print("label", cifar_train_labels[12])
-#cifar_train_images = cifar_train_images.reshape(50000, 784).astype("float32") / 255
-#cifar_test_images = cifar_test_images.reshape(10000, 784).astype("float32") / 255
-
+"""
 
 #label for 4 way 
 way_0 = tf.Variable([1.,0.,0.,0.])
@@ -55,14 +56,14 @@ way.append(way_3)
 
 
 def testing_data_set_sampling():
-    random_label_list=set(ftest_labels)
+    random_label_list=set(y_test)
     random_label_list=random.sample(random_label_list,4)
     sampling_support_data_set=[]
     for i in random_label_list: 
         while len(sampling_support_data_set) <= 4:
             random_label=random.randint(0,9999)
-            if i == ftest_labels[random_label]:            
-                sampling_support_data_set.append(ftest_images[random_label])           
+            if i == y_test[random_label]:            
+                sampling_support_data_set.append(x_test[random_label])           
                 break
     query_label=random.sample(random_label_list,1)
     sampling_query_way=random_label_list.index(query_label)    
@@ -70,8 +71,8 @@ def testing_data_set_sampling():
     for i in query_label: 
         while len(query_data_set) <= 1:
             random_label=random.randint(0,9999)
-            if i == ftest_labels[random_label]:            
-                query_data_set.append(ftest_images[random_label])           
+            if i == y_test[random_label]:            
+                query_data_set.append(x_test[random_label])           
                 break
  
 
@@ -106,8 +107,8 @@ def data_preprocessing_for_testing(way_buf, data_set, q_data_set):
     empty_label = tf.Variable([0.,0.,0.,0.])
     data_buffer=[]    
     for i,j in zip(way_buf,data_set):
-        #print("way_buf",way_buf)
-        #print("data_set",data_set)
+        #print("way_buf",i)
+        #print("data_set",j)
         sampled_data=tf.concat([i,j],0)
         sampled_data=tf.expand_dims(sampled_data,0)
         data_buffer.append(sampled_data)
@@ -132,8 +133,8 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
 
 def network_initializer():   
     ini_w1=tf.Variable(tf.random.uniform([788,400],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([400,200],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([200,50],-1,1), trainable=True)
+    ini_w2=tf.Variable(tf.random.uniform([400,250],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([250,100],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3
 
 def forward_pass(input,fw1,fw2,fw3):
@@ -158,7 +159,7 @@ def backward_pass(eQD_buffer,bw1,bw2,bw3):
     return input
 
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,query_way_buff):
-    margin=1.0
+    margin=20.0
     encoded_data,lw1,lw2,lw3 = forward_pass(encoded_query_data,cw1,cw2,cw3)
     retrieved_data, dist_btw_eQD_rD, retrieved_way = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
@@ -204,18 +205,40 @@ w1, w2, w3 = network_initializer()
 
 
 #sequence
-def meta_testing(weight_buf1,weight_buf2,weight_buf3):
+def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
 #meta_testing = 100 
     count=0
     answer=0
+    repeat=0
     for testing in range(100):
         count=count+1
         support_label_list,support_buff,query_label,query_data_buff,query_way = testing_data_set_sampling()
         support_data_set,query_data=data_preprocessing_for_testing(way,support_buff,query_data_buff) 
     #store support set
-        for support_input in support_data_set:
+        for support_input,label in zip(support_data_set, support_label_list):            
             encoder_buffer,w1,w2,w3 = forward_pass(support_input, weight_buf1,weight_buf2,weight_buf3)
             TCAM_store(encoder_buffer)
+            if (save_trigger ==1) and testing == 99 :
+                qd=tf.slice(support_input,[0,3],[1,784])
+                qd=tf.reshape(qd,[28,28])   
+                plt.imshow(qd, cmap='gray')
+                repeat=str(label)
+                plt.savefig('./figures/'+repeat+'support_input_init.png')
+
+                edb=tf.reshape(encoder_buffer,[10,10])
+                plt.imshow(edb, cmap='gray')
+                plt.savefig('./figures/'+repeat+'encoder_buffer_init.png')
+            if save_trigger == 2 and testing == 99:
+                qd=tf.slice(support_input,[0,3],[1,784])
+                qd=tf.reshape(qd,[28,28])   
+                plt.imshow(qd, cmap='gray')
+                repeat=str(label)
+                plt.savefig('./figures/'+repeat+'support_input_end.png')
+
+                edb=tf.reshape(encoder_buffer,[10,10])
+                plt.imshow(edb, cmap='gray')
+                plt.savefig('./figures/'+repeat+'encoder_buffer_end.png')
+                
     #query
         encoder_buffer,w1,w2,w3 = forward_pass(query_data,w1,w2,w3)
         TCAM_buffer, distance_btw_query_mostsimilarTCAM, which_way = TCAM_retrieve(encoder_buffer)
@@ -226,9 +249,10 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3):
         if query_way == which_way:
             answer=answer+1
         accuracy=answer/count
-
+                
         TCAM_array.clear()
-    return accuracy
+
+    return accuracy, query_data, encoder_buffer,TCAM_buffer, query_label
 
 def meta_training(weight_buf1,weight_buf2,weight_buf3):
     count=0
@@ -254,16 +278,30 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 #w1,w2,w3=meta_training(w1,w2,w3)
 accuracy_list=[]
 loss_list=[]
-epoch=1
+epoch=2100
 max_acc=0
+min_loss=0
+trigger=0
 for epoches in range(epoch):
-    acc=meta_testing(w1,w2,w3)
+    if epoches == 10:
+        trigger=1
+    if epoches == 2000:
+        trigger=2
+    acc,query_data,encoded_data_buffer,retrieved_data_buffer,query_label_buffer=meta_testing(w1,w2,w3,trigger)
+    trigger=0
     w1,w2,w3,loss_buf=meta_training(w1,w2,w3)
     loss_list.append(loss_buf)
     print("accuracy:",acc)
     accuracy_list.append(acc)
     if max_acc < acc:
         max_acc = acc
+    if min_loss > loss_buf:
+        min_loss = loss_buf
+    print("query label",query_label_buffer)
+    #print(support_set)
+        
+
+
 epoch=range(0,epoch)
 plt.subplot(2,1,1)
 plt.plot(epoch, accuracy_list)
@@ -276,7 +314,7 @@ plt.title('loss')
 plt.savefig('test.png', dpi=500)
 
 print("maximum_accuracy", max_acc)
-
+print("minmum_loss", loss_buf)
 
 print("Running time: {:.4f}min".format((time.time()-start_time)/60))
 #end of code

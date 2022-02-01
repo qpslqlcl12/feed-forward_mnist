@@ -156,7 +156,7 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
 def network_initializer():   
     ini_w1=tf.Variable(tf.random.uniform([11029,5000],-1,1), trainable=True)      
     ini_w2=tf.Variable(tf.random.uniform([5000,1000],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([1000,100],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([1000,800],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3
 
 def forward_pass(input,fw1,fw2,fw3):
@@ -181,7 +181,7 @@ def backward_pass(eQD_buffer,bw1,bw2,bw3):
     return input
 
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,query_way_buff):
-    margin=1.0
+    margin=10.0
     encoded_data,lw1,lw2,lw3 = forward_pass(encoded_query_data,cw1,cw2,cw3)
     retrieved_data, dist_btw_eQD_rD, retrieved_way = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
@@ -264,7 +264,7 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
     #print(support_data_set)
     #print(query_label)
 
-
+     
     for support_input in support_data_set:    
         encoder_buffer,weight_buf1,weight_buf2,weight_buf3 = forward_pass(support_input,weight_buf1,weight_buf2,weight_buf3)
         TCAM_store(encoder_buffer)
@@ -287,8 +287,9 @@ testing_data_set_sampling()
 #w1,w2,w3=meta_training(w1,w2,w3)
 accuracy_list=[]
 loss_list=[]
-epoch=10000
+epoch=5000
 max_acc=0
+min_loss=0
 for epoches in range(epoch):
     acc=meta_testing(w1,w2,w3)
     w1,w2,w3,loss_buf=meta_training(w1,w2,w3)
@@ -297,6 +298,8 @@ for epoches in range(epoch):
     accuracy_list.append(acc)
     if max_acc < acc:
         max_acc = acc
+    if min_loss > loss_buf:
+        min_loss = loss_buf
 epoch=range(0,epoch)
 plt.subplot(2,1,1)
 plt.plot(epoch, accuracy_list)
@@ -309,7 +312,7 @@ plt.title('loss')
 plt.savefig('test.png', dpi=500)
 
 print("maximum_accuracy", max_acc)
-
+print("minmum_loss", loss_buf)
 
 print("Running time: {:.4f}min".format((time.time()-start_time)/60))
 #end of code
