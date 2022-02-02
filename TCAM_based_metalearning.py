@@ -161,7 +161,7 @@ def backward_pass(eQD_buffer,bw1,bw2,bw3):
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,query_way_buff):
     margin=10.0
     encoded_data,lw1,lw2,lw3 = forward_pass(encoded_query_data,cw1,cw2,cw3)
-    retrieved_data, dist_btw_eQD_rD, retrieved_way = TCAM_retrieve(encoded_data)
+    retrieved_data, dist_btw_eQD_rD, retrieved_way,dist_btw_Q_TCAM = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
     
     if query_way_buff==retrieved_way:
@@ -193,7 +193,7 @@ def TCAM_retrieve(encoded_query_data):
         dist1.append(Euclidian_distance(encoded_query_data, stored_data))
     min_dist_value=min(dist1)
     min_dist_index=dist1.index(min_dist_value)
-    return TCAM_array[min_dist_index], min_dist_value, min_dist_index
+    return TCAM_array[min_dist_index], min_dist_value, min_dist_index, dist1
 
 def Euclidian_distance(x,y):
     dist=tf.sqrt(tf.reduce_sum(tf.square(x-y)))    
@@ -210,7 +210,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
     count=0
     answer=0
     repeat=0
-    for testing in range(2):
+    for testing in range(100):
         count=count+1
         support_label_list,support_buff,query_label,query_data_buff,query_way = testing_data_set_sampling()
         support_data_set,query_data=data_preprocessing_for_testing(way,support_buff,query_data_buff) 
@@ -249,11 +249,12 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
                 
     #query
         encoder_buffer,w1,w2,w3 = forward_pass(query_data,w1,w2,w3)
-        TCAM_buffer, distance_btw_query_mostsimilarTCAM, which_way = TCAM_retrieve(encoder_buffer)
+        TCAM_buffer, distance_btw_query_mostsimilarTCAM, which_way,dist_btw_Q_TCAM  = TCAM_retrieve(encoder_buffer)
         if(testing%50 == 0):
             print("support_label",support_label_list)
             print("query_way",query_way)
-            print("retrieved_way: ", which_way)  
+            print("retrieved_way: ", which_way) 
+            print("distances btw query & TCAM stored_data", dist_btw_Q_TCAM)
         if query_way == which_way:
             answer=answer+1
         accuracy=answer/count
@@ -286,14 +287,15 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 #w1,w2,w3=meta_training(w1,w2,w3)
 accuracy_list=[]
 loss_list=[]
-epoch=2
+epoch=1000
 max_acc=0
 min_loss=0
 trigger=0
 for epoches in range(epoch):
-    if epoches == 200:
+    print(epoches,'th epoch.')
+    if epoches == 2:
         trigger=1
-    if epoches == 2000:
+    if epoches == (epoch-2):
         trigger=2
     acc,query_data,encoded_data_buffer,retrieved_data_buffer,query_label_buffer=meta_testing(w1,w2,w3,trigger)
     trigger=0
