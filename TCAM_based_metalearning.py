@@ -172,7 +172,7 @@ def contrastive_loss(encoded_query_data,cw1,cw2,cw3,query_way_buff):
         print("dissimilar")
     
     #similar=0
-    loss_value=(similar)*(0.5)*(tf.square(Dw))+(1-similar)*tf.square((0.5)*(tf.math.maximum(0.,margin-Dw)))
+    loss_value=(similar)*(0.5)*(tf.square(Dw))+(1-similar)*(0.5)*tf.square(tf.math.maximum(0.,margin-Dw))
     
     return loss_value
 
@@ -230,22 +230,22 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
                 qd=tf.reshape(qd,[28,28])   
                 plt.imshow(qd, cmap='gray')
                 repeat=str(label)
-                plt.savefig('./figures/'+repeat+'support_input_init.png')
+                plt.savefig('./figures/'+repeat+'_support_input_init.png')
 
                 edb=tf.reshape(encoder_buffer,[10,10])
                 plt.imshow(edb, cmap='gray')
-                plt.savefig('./figures/'+repeat+'encoder_buffer_init.png')                
+                plt.savefig('./figures/'+repeat+'_encoder_buffer_init.png')                
 
             if save_trigger == 2 and testing == 99:
                 qd=tf.slice(support_input,[0,3],[1,784])
                 qd=tf.reshape(qd,[28,28])   
                 plt.imshow(qd, cmap='gray')
                 repeat=str(label)
-                plt.savefig('./figures/'+repeat+'support_input_end.png')
+                plt.savefig('./figures/'+repeat+'_support_input_end.png')
 
                 edb=tf.reshape(encoder_buffer,[10,10])
                 plt.imshow(edb, cmap='gray')
-                plt.savefig('./figures/'+repeat+'encoder_buffer_end.png')
+                plt.savefig('./figures/'+repeat+'_encoder_buffer_end.png')
                 
     #query
         encoder_buffer,w1,w2,w3 = forward_pass(query_data,w1,w2,w3)
@@ -275,7 +275,7 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 
     for query_data_sample,query_way_list in zip(query_data,query_way):
         grad_weight1,grad_weight2,grad_weight3,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,query_way_list)
-        print("loss:",loss_value)               
+        #print("training loss:",loss_value)               
         opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3],[weight_buf1,weight_buf2,weight_buf3]))
         count=count+1
     TCAM_array.clear()
@@ -292,7 +292,7 @@ max_acc=0
 min_loss=0
 trigger=0
 for epoches in range(epoch):
-    print(epoches,'th epoch.')
+    print('=======',epoches,'th epoch =======')
     if epoches == 2:
         trigger=1
     if epoches == (epoch-2):
