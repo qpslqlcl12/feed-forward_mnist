@@ -159,8 +159,8 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
 def network_initializer():   
     ini_w1=tf.Variable(tf.random.uniform([11029,5000],-1,1), trainable=True)      
     ini_w2=tf.Variable(tf.random.uniform([5000,2500],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([2500,1000],-1,1), trainable=True)
-    ini_w4=tf.Variable(tf.random.uniform([1000,25],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([2500,500],-1,1), trainable=True)
+    ini_w4=tf.Variable(tf.random.uniform([500,25],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3, ini_w4
 
 def forward_pass(input,fw1,fw2,fw3,fw4):
@@ -192,15 +192,16 @@ def contrastive_loss(encoded_query_data,cw1,cw2,cw3,cw4,query_way_buff):
         print("dissimilar")
     
     #similar=0
-    loss_value=(similar)*(0.5)*(tf.square(Dw))+(1-similar)*(0.5)*tf.square((tf.math.maximum(0.,margin-Dw)))
-    
+    loss_value=(similar)*(0.5)*(tf.square(Dw)) + (1-similar)*(0.5)*(tf.square(tf.math.maximum(0.,margin-Dw)))
+    #print("loss:",loss_value)
+    #print("dist",Dw)
     return loss_value
 
 def grad(query_input,weight1,weight2,weight3,weight4,query_way_buff):
     with tf.GradientTape() as tape:
         loss=contrastive_loss(query_input,weight1,weight2,weight3,weight4,query_way_buff)        
     dw1, dw2, dw3,dw4 = tape.gradient(loss,[weight1,weight2,weight3,weight4])       
-    return dw1,dw2,dw3,dw4, loss
+    return dw1,dw2,dw3,dw4,loss
  
 def TCAM_store(encoded_data):
     TCAM_array.append(encoded_data)
@@ -292,9 +293,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4, save_trigger):
             plt.imshow(edb, cmap='gray')
             plt.savefig('./figures/encoded_Q_end.png')
 
-        
-        
-        
+                       
         if(testing%10 == 0):
             print("testing_support_label",support_label_list)
             print("query_label", query_label)
@@ -316,6 +315,8 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4, save_trigger):
 
 def meta_training(weight_buf1,weight_buf2,weight_buf3, weight_buf4):
     train_number=8
+    average_loss=0
+    loss_sum=0
     for traning in range(train_number):
 #meta_training, in training seq, query is set of all the ways.
         support_label_list,support_buff,query_label,query_data_buff,query_way = training_data_set_sampling() 
@@ -334,10 +335,12 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3, weight_buf4):
             grad_weight1,grad_weight2,grad_weight3,grad_weight4,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,weight_buf4,query_way_list)
             #print("loss:",loss_value)                
             opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3,grad_weight4],[weight_buf1,weight_buf2,weight_buf3,weight_buf4]))
-        
+            loss_sum=loss_sum+loss_value
+
+        average_loss=loss_sum/4
         TCAM_array.clear()
     
-    return weight_buf1,weight_buf2,weight_buf3,weight_buf4, loss_value
+    return weight_buf1,weight_buf2,weight_buf3,weight_buf4, average_loss
 
 
 #ac=meta_testing(w1,w2,w3)
@@ -358,6 +361,7 @@ for epoches in range(epoch):
     acc=meta_testing(w1,w2,w3,w4,trigger)
     trigger=0
     w1,w2,w3,w4,loss_buf=meta_training(w1,w2,w3,w4)
+    print("avg-loss:",loss_buf)
     loss_list.append(loss_buf)
     print("accuracy:",acc,"%")
     accuracy_list.append(acc)
