@@ -157,9 +157,9 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
     return data_buffer,query_data_buffer
 
 def network_initializer():   
-    ini_w1=tf.Variable(tf.random.uniform([11029,5000],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([5000,2500],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([2500,500],-1,1), trainable=True)
+    ini_w1=tf.Variable(tf.random.uniform([11029,4000],-1,1), trainable=True)      
+    ini_w2=tf.Variable(tf.random.uniform([4000,1500],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([1500,500],-1,1), trainable=True)
     ini_w4=tf.Variable(tf.random.uniform([500,25],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3, ini_w4
 
@@ -179,17 +179,17 @@ def forward_pass(input,fw1,fw2,fw3,fw4):
 
 
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,cw4,query_way_buff):
-    margin=5.0
+    margin=10.0
     encoded_data,lw1,lw2,lw3,lw4 = forward_pass(encoded_query_data,cw1,cw2,cw3,cw4)
     retrieved_data, dist_btw_eQD_rD, retrieved_way, dist_btw_Q_TCAM = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
     
     if query_way_buff==retrieved_way:
         similar = 1
-        print("similar")
+        #print("similar")
     else:
         similar = 0
-        print("dissimilar")
+        #print("dissimilar")
     
     #similar=0
     loss_value=(similar)*(0.5)*(tf.square(Dw)) + (1-similar)*(0.5)*(tf.square(tf.math.maximum(0.,margin-Dw)))
@@ -231,7 +231,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4, save_trigger):
     count=0
     answer=0
     repeat=0
-    test_number=50
+    test_number=100
     init_dists=[]
     end_dists=[]
     similarity_loss=0
@@ -329,7 +329,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4, save_trigger):
     return accuracy, similarity_loss, dissimilarity_loss
 
 def meta_training(weight_buf1,weight_buf2,weight_buf3, weight_buf4):
-    train_number=8    
+    train_number=100    
     for traning in range(train_number):
 #meta_training, in training seq, query is set of all the ways.
         support_label_list,support_buff,query_label,query_data_buff,query_way = training_data_set_sampling() 
@@ -360,7 +360,7 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3, weight_buf4):
 accuracy_list=[]
 sim_loss_list=[]
 dis_loss_list=[]
-epoch=10
+epoch=1000
 max_acc=0
 min_loss=0
 trigger=0

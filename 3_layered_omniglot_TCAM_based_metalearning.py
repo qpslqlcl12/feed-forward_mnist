@@ -226,9 +226,13 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
     count=0
     answer=0
     repeat=0
-    test_number=50
+    test_number=100
     init_dists=[]
     end_dists=[]
+    similarity_loss=0
+    num_of_sim=0
+    dissimilarity_loss=0
+    num_of_dis=0
     for testing in range(test_number):
         count=count+1
         support_label_list,support_buff,query_label,query_data_buff,query_way = testing_data_set_sampling()
@@ -307,11 +311,22 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
             answer=answer+1
         accuracy=(answer/count)*100
 
+        loss_buffer,similarity=contrastive_loss(query_data,w1,w2,w3,w4,query_way)
+        if similarity == 1:
+            similarity_loss=similarity_loss+loss_buffer
+            num_of_sim=num_of_sim+1
+        elif similarity == 0:
+            dissimilarity_loss=dissimilarity_loss+loss_buffer
+            num_of_dis=num_of_dis+1
         TCAM_array.clear()
-    return accuracy
+
+    similarity_loss=similarity_loss/num_of_sim
+    dissimilarity_loss=dissimilarity_loss/num_of_dis
+
+    return accuracy, similarity_loss, dissimilarity_loss
 
 def meta_training(weight_buf1,weight_buf2,weight_buf3):
-    train_number=8
+    train_number=100
     average_loss=0
     loss_sum=0
     for traning in range(train_number):
@@ -332,19 +347,20 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
             grad_weight1,grad_weight2,grad_weight3,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,query_way_list)
             #print("loss:",loss_value)                
             opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3],[weight_buf1,weight_buf2,weight_buf3]))
-            loss_sum=loss_sum+loss_value
-        average_loss=loss_sum/4
+
+
         TCAM_array.clear()
     
-    return weight_buf1,weight_buf2,weight_buf3, loss_value
+    return weight_buf1,weight_buf2,weight_buf3
 
 
 #ac=meta_testing(w1,w2,w3)
 #print(ac)
 #w1,w2,w3=meta_training(w1,w2,w3)
 accuracy_list=[]
-loss_list=[]
-epoch=20000
+sim_loss_list=[]
+dis_loss_list=[]
+epoch=1000
 max_acc=0
 min_loss=0
 trigger=0
@@ -354,29 +370,32 @@ for epoches in range(epoch):
         trigger=0
     if epoches == (epoch-1):
         trigger=0
-    acc=meta_testing(w1,w2,w3,trigger)
+    acc,sim_loss,dis_loss=meta_testing(w1,w2,w3,trigger)
     trigger=0
-    w1,w2,w3,loss_buf=meta_training(w1,w2,w3)
-    loss_list.append(loss_buf)
+    w1,w2,w3=meta_training(w1,w2,w3)
+    sim_loss_list.append(sim_loss)
+    dis_loss_list.append(dis_loss)
     print("accuracy:",acc,"%")
     accuracy_list.append(acc)
     if max_acc < acc:
         max_acc = acc
-    if min_loss > loss_buf:
-        min_loss = loss_buf
+    #if min_loss > loss_buf:
+        #min_loss = loss_buf
 epoch=range(0,epoch)
-plt.subplot(2,1,1)
+plt.subplot(3,1,1)
 plt.plot(epoch, accuracy_list)
 plt.title('accuracy')
-plt.subplot(2,1,2)
-plt.plot(epoch, loss_list)
-plt.title('loss')
+plt.subplot(3,1,2)
+plt.plot(epoch, sim_loss_list)
+plt.title('similarity loss')
+plt.subplot(3,1,3)
+plt.plot(epoch, dis_loss_list)
+plt.title('dissimilarity loss')
 
-
-plt.savefig('test.png', dpi=500)
+plt.savefig('result.png', dpi=500)
 
 print("maximum_accuracy", max_acc)
-print("minmum_loss", loss_buf)
+#print("minmum_loss", loss_buf)
 
 print("Running time: {:.4f}min".format((time.time()-start_time)/60))
 #end of code
