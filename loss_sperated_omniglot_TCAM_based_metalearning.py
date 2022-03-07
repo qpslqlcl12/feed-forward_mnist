@@ -158,9 +158,9 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
 
 def network_initializer():   
     ini_w1=tf.Variable(tf.random.uniform([11029,4000],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([4000,1500],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([1500,500],-1,1), trainable=True)
-    ini_w4=tf.Variable(tf.random.uniform([500,25],-1,1), trainable=True)
+    ini_w2=tf.Variable(tf.random.uniform([4000,2000],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([2000,1000],-1,1), trainable=True)
+    ini_w4=tf.Variable(tf.random.uniform([1000,100],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3, ini_w4
 
 def forward_pass(input,fw1,fw2,fw3,fw4):
@@ -179,7 +179,7 @@ def forward_pass(input,fw1,fw2,fw3,fw4):
 
 
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,cw4,query_way_buff):
-    margin=10.0
+    margin=5.0
     encoded_data,lw1,lw2,lw3,lw4 = forward_pass(encoded_query_data,cw1,cw2,cw3,cw4)
     retrieved_data, dist_btw_eQD_rD, retrieved_way, dist_btw_Q_TCAM = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
@@ -360,7 +360,7 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3, weight_buf4):
 accuracy_list=[]
 sim_loss_list=[]
 dis_loss_list=[]
-epoch=1000
+epoch=3000
 max_acc=0
 min_loss=0
 trigger=0
@@ -393,7 +393,7 @@ plt.subplot(3,1,3)
 plt.plot(epoch, dis_loss_list)
 plt.title('dissimilarity loss')
 
-plt.savefig('result.png', dpi=500)
+plt.savefig('result.png', dpi=1500)
 
 print("maximum_accuracy", max_acc)
 #print("minmum_loss", loss_buf)

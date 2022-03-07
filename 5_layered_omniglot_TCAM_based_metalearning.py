@@ -158,45 +158,50 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
 
 def network_initializer():   
     ini_w1=tf.Variable(tf.random.uniform([11029,8000],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([8000,1500],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([1500,100],-1,1), trainable=True)
-    return ini_w1, ini_w2, ini_w3
+    ini_w2=tf.Variable(tf.random.uniform([8000,4000],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([4000,2000],-1,1), trainable=True)
+    ini_w4=tf.Variable(tf.random.uniform([2000,500],-1,1), trainable=True)
+    ini_w5=tf.Variable(tf.random.uniform([500,100],-1,1), trainable=True)
+    return ini_w1, ini_w2, ini_w3, ini_w4, ini_w5
 
-def forward_pass(input,fw1,fw2,fw3):
+def forward_pass(input,fw1,fw2,fw3,fw4,fw5):
     h1=tf.matmul(input,fw1)    
     h1=tf.keras.activations.sigmoid(h1)  
 
     h2=tf.matmul(h1,fw2)    
     h2=tf.keras.activations.sigmoid(h2) 
-        
-    out=tf.matmul(h2,fw3)
+    h3=tf.matmul(h2,fw3)    
+    h3=tf.keras.activations.sigmoid(h3)  
+    h4=tf.matmul(h3,fw4)    
+    h4=tf.keras.activations.sigmoid(h4) 
+    out=tf.matmul(h4,fw5)
     out=tf.keras.activations.sigmoid(out)
-    return out,fw1,fw2,fw3
+    return out,fw1,fw2,fw3,fw4,fw5
 
 
-def contrastive_loss(encoded_query_data,cw1,cw2,cw3,query_way_buff):
+def contrastive_loss(encoded_query_data,cw1,cw2,cw3,cw4,cw5,query_way_buff):
     margin=10.0
-    encoded_data,lw1,lw2,lw3 = forward_pass(encoded_query_data,cw1,cw2,cw3)
+    encoded_data,lw1,lw2,lw3,lw4,lw5 = forward_pass(encoded_query_data,cw1,cw2,cw3,cw4,cw5)
     retrieved_data, dist_btw_eQD_rD, retrieved_way, dist_btw_Q_TCAM = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
     
     if query_way_buff==retrieved_way:
         similar = 1
-        print("similar")
+        #print("similar")
     else:
         similar = 0
-        print("dissimilar")
+        #print("dissimilar")
     
     #similar=0
     loss_value=(similar)*(0.5)*(tf.square(Dw))+(1-similar)*(0.5)*tf.square((tf.math.maximum(0.,margin-Dw)))
     
-    return loss_value
+    return loss_value, similar
 
-def grad(query_input,weight1,weight2,weight3,query_way_buff):
+def grad(query_input,weight1,weight2,weight3,weight4,weight5,query_way_buff):
     with tf.GradientTape() as tape:
-        loss=contrastive_loss(query_input,weight1,weight2,weight3,query_way_buff)        
-    dw1, dw2, dw3 = tape.gradient(loss,[weight1,weight2,weight3])       
-    return dw1,dw2,dw3, loss
+        loss,dummy=contrastive_loss(query_input,weight1,weight2,weight3,weight4,weight5,query_way_buff)        
+    dw1,dw2, dw3,dw4,dw5 = tape.gradient(loss,[weight1,weight2,weight3,weight4,weight5])       
+    return dw1,dw2,dw3,dw4,dw5, loss
  
 def TCAM_store(encoded_data):
     TCAM_array.append(encoded_data)
@@ -217,11 +222,11 @@ def Euclidian_distance(x,y):
 
 
 
-w1, w2, w3 = network_initializer()
+w1, w2, w3,w4,w5 = network_initializer()
 
 
 #sequence
-def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
+def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5, save_trigger):
 #meta_testing = 100 
     count=0
     answer=0
@@ -239,7 +244,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
         support_data_set,query_data=data_preprocessing_for_testing(way,support_buff,query_data_buff) 
     #store support set
         for support_input,label in zip(support_data_set,support_label_list):
-            encoder_buffer,w1,w2,w3 = forward_pass(support_input, weight_buf1,weight_buf2,weight_buf3)
+            encoder_buffer,w1,w2,w3,w4,w5 = forward_pass(support_input, weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5)
             TCAM_store(encoder_buffer)
             """
             if (save_trigger ==1) and testing == (test_number-1) :
@@ -267,7 +272,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
 
 
     #query
-        encoder_buffer,w1,w2,w3 = forward_pass(query_data,w1,w2,w3)
+        encoder_buffer,w1,w2,w3,w4,w5 = forward_pass(query_data,w1,w2,w3,w4,w5)
         TCAM_buffer, distance_btw_query_mostsimilarTCAM, which_way, dist_btw_Q_TCAM = TCAM_retrieve(encoder_buffer)
         """
         if (save_trigger ==1) and testing == (test_number-1) :
@@ -295,7 +300,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
         
         """
         
-        if(testing%10 == 0):
+        if(testing%100 == 0):
             print("testing_support_label",support_label_list)
             print("query_label", query_label)
             print("query_way",query_way)
@@ -311,7 +316,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
             answer=answer+1
         accuracy=(answer/count)*100
 
-        loss_buffer,similarity=contrastive_loss(query_data,w1,w2,w3,w4,query_way)
+        loss_buffer,similarity=contrastive_loss(query_data,w1,w2,w3,w4,w5,query_way)
         if similarity == 1:
             similarity_loss=similarity_loss+loss_buffer
             num_of_sim=num_of_sim+1
@@ -325,7 +330,7 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3, save_trigger):
 
     return accuracy, similarity_loss, dissimilarity_loss
 
-def meta_training(weight_buf1,weight_buf2,weight_buf3):
+def meta_training(weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5):
     train_number=100
     average_loss=0
     loss_sum=0
@@ -340,18 +345,18 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 
      
         for support_input in support_data_set:    
-            encoder_buffer,weight_buf1,weight_buf2,weight_buf3 = forward_pass(support_input,weight_buf1,weight_buf2,weight_buf3)
+            encoder_buffer,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5 = forward_pass(support_input,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5)
             TCAM_store(encoder_buffer)
 
         for query_data_sample,query_way_list in zip(query_data,query_way):
-            grad_weight1,grad_weight2,grad_weight3,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,query_way_list)
+            grad_weight1,grad_weight2,grad_weight3,grad_weight4,grad_weight5,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5,query_way_list)
             #print("loss:",loss_value)                
-            opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3],[weight_buf1,weight_buf2,weight_buf3]))
+            opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3,grad_weight4,grad_weight5],[weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5]))
 
 
         TCAM_array.clear()
     
-    return weight_buf1,weight_buf2,weight_buf3
+    return weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5
 
 
 #ac=meta_testing(w1,w2,w3)
@@ -360,7 +365,7 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3):
 accuracy_list=[]
 sim_loss_list=[]
 dis_loss_list=[]
-epoch=2000
+epoch=3
 max_acc=0
 min_loss=0
 trigger=0
@@ -370,9 +375,9 @@ for epoches in range(epoch):
         trigger=0
     if epoches == (epoch-1):
         trigger=0
-    acc,sim_loss,dis_loss=meta_testing(w1,w2,w3,trigger)
+    acc,sim_loss,dis_loss=meta_testing(w1,w2,w3,w4,w5,trigger)
     trigger=0
-    w1,w2,w3=meta_training(w1,w2,w3)
+    w1,w2,w3,w4,w5=meta_training(w1,w2,w3,w4,w5)
     sim_loss_list.append(sim_loss)
     dis_loss_list.append(dis_loss)
     print("accuracy:",acc,"%")
