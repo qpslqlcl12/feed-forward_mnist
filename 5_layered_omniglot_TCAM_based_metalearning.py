@@ -157,18 +157,18 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
     return data_buffer,query_data_buffer
 
 def network_initializer():   
-    ini_w1=tf.Variable(tf.random.uniform([11029,8000],-1,1), trainable=True)      
-    ini_w2=tf.Variable(tf.random.uniform([8000,4000],-1,1), trainable=True)
-    ini_w3=tf.Variable(tf.random.uniform([4000,2000],-1,1), trainable=True)
-    ini_w4=tf.Variable(tf.random.uniform([2000,500],-1,1), trainable=True)
-    ini_w5=tf.Variable(tf.random.uniform([500,100],-1,1), trainable=True)
+    ini_w1=tf.Variable(tf.random.uniform([11029,4000],-1,1), trainable=True)      
+    ini_w2=tf.Variable(tf.random.uniform([4000,2000],-1,1), trainable=True)
+    ini_w3=tf.Variable(tf.random.uniform([2000,1000],-1,1), trainable=True)
+    ini_w4=tf.Variable(tf.random.uniform([1000,600],-1,1), trainable=True)
+    ini_w5=tf.Variable(tf.random.uniform([600,200],-1,1), trainable=True)
     return ini_w1, ini_w2, ini_w3, ini_w4, ini_w5
 
 def forward_pass(input,fw1,fw2,fw3,fw4,fw5):
     h1=tf.matmul(input,fw1)    
     h1=tf.keras.activations.sigmoid(h1)  
 
-    h2=tf.matmul(h1,fw2)    
+    h2=tf.matmul(h1,fw2)     
     h2=tf.keras.activations.sigmoid(h2) 
     h3=tf.matmul(h2,fw3)    
     h3=tf.keras.activations.sigmoid(h3)  
@@ -180,7 +180,7 @@ def forward_pass(input,fw1,fw2,fw3,fw4,fw5):
 
 
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,cw4,cw5,query_way_buff):
-    margin=10.0
+    margin=8.0
     encoded_data,lw1,lw2,lw3,lw4,lw5 = forward_pass(encoded_query_data,cw1,cw2,cw3,cw4,cw5)
     retrieved_data, dist_btw_eQD_rD, retrieved_way, dist_btw_Q_TCAM = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
@@ -224,16 +224,15 @@ def Euclidian_distance(x,y):
 
 w1, w2, w3,w4,w5 = network_initializer()
 
-
+init_dists=[]
+end_dists=[]
 #sequence
 def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5, save_trigger):
 #meta_testing = 100 
     count=0
     answer=0
     repeat=0
-    test_number=100
-    init_dists=[]
-    end_dists=[]
+    test_number=100   
     similarity_loss=0
     num_of_sim=0
     dissimilarity_loss=0
@@ -274,6 +273,17 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5, sa
     #query
         encoder_buffer,w1,w2,w3,w4,w5 = forward_pass(query_data,w1,w2,w3,w4,w5)
         TCAM_buffer, distance_btw_query_mostsimilarTCAM, which_way, dist_btw_Q_TCAM = TCAM_retrieve(encoder_buffer)
+        
+        if (save_trigger ==1):
+            if testing == test_number-1 or testing == test_number-10:
+                init_dists.append(dist_btw_Q_TCAM)
+
+        if (save_trigger == 2):
+            if testing == test_number-1 or testing == test_number-10:
+                print("init_dists:",init_dists)
+                end_dists.append(dist_btw_Q_TCAM)
+                print("final_dists:", end_dists)
+
         """
         if (save_trigger ==1) and testing == (test_number-1) :
             qd=tf.slice(query_data,[0,3],[1,11025])
@@ -306,12 +316,8 @@ def meta_testing(weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5, sa
             print("query_way",query_way)
             print("retrieved_way: ", which_way)  
             print("distances btw query & TCAM stored_data", dist_btw_Q_TCAM)
-        if (save_trigger ==1) and testing == (test_number-1):
-            init_dists=dist_btw_Q_TCAM 
-        if save_trigger == 2 and testing == (test_number-1):
-            print("init_dists:",init_dists)
-            end_dists=dist_btw_Q_TCAM 
-            print("final_dists:", end_dists)
+
+       
         if query_way == which_way:
             answer=answer+1
         accuracy=(answer/count)*100
@@ -372,9 +378,9 @@ trigger=0
 for epoches in range(epoch):
     print('=======',epoches,'th epoch========')
     if epoches == 0:
-        trigger=0
+        trigger=1
     if epoches == (epoch-1):
-        trigger=0
+        trigger=2
     acc,sim_loss,dis_loss=meta_testing(w1,w2,w3,w4,w5,trigger)
     trigger=0
     w1,w2,w3,w4,w5=meta_training(w1,w2,w3,w4,w5)
