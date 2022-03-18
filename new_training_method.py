@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 start_time = time.time()
 
 np.set_printoptions(precision=6, suppress=True)
-#np.set_printoptions(threshold=np.inf, linewidth=np.inf)
+np.set_printoptions(threshold=np.inf, linewidth=np.inf)
 
 way=[]
 w1=[]
@@ -38,7 +38,6 @@ way.append(way_1)
 way.append(way_2)
 way.append(way_3)
 
-
 def load_img(fn):
     I=plt.imread(fn)
     I=np.array(I,dtype=bool)
@@ -47,7 +46,6 @@ def load_img(fn):
     I=I.flatten()
     #print(I.shape)
     return I
-
 
 def testing_data_set_sampling():
     testing_img_dir = '../omniglot/python/images_evaluation'
@@ -87,7 +85,7 @@ def testing_data_set_sampling():
     sampling_query_way=random_label_list.index(query_label)
     #print("check")
     #print(sampling_query_way)
-        
+       
 
     return random_label_list,sampling_support_data_set,query_label,testing_query_set,sampling_query_way
 
@@ -98,7 +96,7 @@ def training_data_set_sampling():
     alphabet_names = random.sample(alphabet_names,nalpha) # choose random alphabets
     #print(alphabet_names) # 4 kinds of random alphabet
     sampling_support_data_set=[]
-    sampling_query_data_set=[]
+    #sampling_query_data_set=[]
     random_label_list=alphabet_names 
     #print(random_label_list)
     for character in alphabet_names:
@@ -106,25 +104,34 @@ def training_data_set_sampling():
         string=str(character_id)
         img_char_dir = os.path.join(training_img_dir,character,'character'+ string.zfill(2))
         support=random.randint(0,15)
-        query=random.randint(16,19)
+        #query=random.randint(16,19)
        
         support_set=os.listdir(img_char_dir)[support]
-        query_set=os.listdir(img_char_dir)[query]       
+        #query_set=os.listdir(img_char_dir)[query]
        
         support_image=img_char_dir + '/' + support_set
-        query_image=img_char_dir + '/' + query_set
+        #query_image=img_char_dir + '/' + query_set
         
         training_support_set=load_img(support_image)
-        training_query_set=load_img(query_image)
+        #training_query_set=load_img(query_image)
         
         sampling_support_data_set.append(training_support_set)
-        sampling_query_data_set.append(training_query_set)
+        #sampling_query_data_set.append(training_query_set)
+        #print(character)
+
+    query=random.randint(16,19)
+    query_set=os.listdir(img_char_dir)[query]
+    query_image=img_char_dir + '/' + query_set
+    training_query_set=load_img(query_image)
+    sampling_query_data_set=training_query_set
 
     #print(sampling_support_data_set)
+    #print("here")
     #print(sampling_query_data_set)  
-    sampling_query_way=[0,1,2,3]        
-   
-    return random_label_list,sampling_support_data_set,query_set,sampling_query_data_set, sampling_query_way
+    #sampling_query_way=[0,1,2,3]        
+    #print(img_char_dir)
+
+    return random_label_list,sampling_support_data_set,query_set,sampling_query_data_set#, sampling_query_way
 
 
 
@@ -150,10 +157,12 @@ def data_preprocessing_for_training(way_buf, data_set, q_data_set):
         data_buffer.append(sampled_data)
 
     query_data_buffer=[]
-    for l in q_data_set:
-        sampled_query_data=tf.concat([empty_label,l],0)
-        sampled_query_data=tf.expand_dims(sampled_query_data,0)
-        query_data_buffer.append(sampled_query_data)
+    #for l in q_data_set:
+    sampled_query_data=tf.concat([empty_label,q_data_set],0)
+    sampled_query_data=tf.expand_dims(sampled_query_data,0)
+    query_data_buffer=sampled_query_data  
+        
+        
     return data_buffer,query_data_buffer
 
 def network_initializer():   
@@ -180,7 +189,7 @@ def forward_pass(input,fw1,fw2,fw3,fw4,fw5):
 
 
 def contrastive_loss(encoded_query_data,cw1,cw2,cw3,cw4,cw5,query_way_buff):
-    margin=12.0
+    margin=10.0
     encoded_data,lw1,lw2,lw3,lw4,lw5 = forward_pass(encoded_query_data,cw1,cw2,cw3,cw4,cw5)
     retrieved_data, dist_btw_eQD_rD, retrieved_way, dist_btw_Q_TCAM = TCAM_retrieve(encoded_data)
     Dw=Euclidian_distance(encoded_data,retrieved_data)
@@ -197,9 +206,27 @@ def contrastive_loss(encoded_query_data,cw1,cw2,cw3,cw4,cw5,query_way_buff):
     
     return loss_value, similar
 
-def grad(query_input,weight1,weight2,weight3,weight4,weight5,query_way_buff):
+def contrastive_loss_training(query_data_buff,cw1,cw2,cw3,cw4,cw5,support_data_buff,indexing):
+    margin=10.0
+    encoded_data,lw1,lw2,lw3,lw4,lw5 = forward_pass(query_data_buff,cw1,cw2,cw3,cw4,cw5)    
+    Dw=Euclidian_distance(encoded_data,support_data_buff)
+    
+    if indexing==3:
+        similar = 1
+        #print("indexing = ",indexing,"similar")
+    else:
+        similar = 0
+        #print("indexing = ",indexing,"dissimilar")
+    
+    #similar=0
+    loss_value=(similar)*(0.5)*(tf.square(Dw))+(1-similar)*(0.5)*tf.square((tf.math.maximum(0.,margin-Dw)))
+    
+    return loss_value, similar
+
+
+def grad(query_input,weight1,weight2,weight3,weight4,weight5,support_data_buff,indexing):
     with tf.GradientTape() as tape:
-        loss,dummy=contrastive_loss(query_input,weight1,weight2,weight3,weight4,weight5,query_way_buff)        
+        loss,dummy=contrastive_loss_training(query_input,weight1,weight2,weight3,weight4,weight5,support_data_buff,indexing)        
     dw1,dw2, dw3,dw4,dw5 = tape.gradient(loss,[weight1,weight2,weight3,weight4,weight5])       
     return dw1,dw2,dw3,dw4,dw5, loss
  
@@ -221,7 +248,7 @@ def Euclidian_distance(x,y):
     return dist
 
 
-
+#training_data_set_sampling()
 w1, w2, w3,w4,w5 = network_initializer()
 
 init_dists=[]
@@ -340,9 +367,12 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5):
     train_number=100
     average_loss=0
     loss_sum=0
+    
     for traning in range(train_number):
+        TCAM_indexing=0
 #meta_training, in training seq, query is set of all the ways.
-        support_label_list,support_buff,query_label,query_data_buff,query_way = training_data_set_sampling() 
+        #support_label_list,support_buff,query_label,query_data_buff,query_way = training_data_set_sampling() 
+        support_label_list,support_buff,query_label,query_data_buff = training_data_set_sampling() 
         support_data_set,query_data=data_preprocessing_for_training(way,support_buff,query_data_buff) 
         #print("support_set")
         #print(support_label_list)
@@ -354,11 +384,13 @@ def meta_training(weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5):
             encoder_buffer,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5 = forward_pass(support_input,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5)
             TCAM_store(encoder_buffer)
 
-        for query_data_sample,query_way_list in zip(query_data,query_way):
-            grad_weight1,grad_weight2,grad_weight3,grad_weight4,grad_weight5,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5,query_way_list)
-            #print("loss:",loss_value)                
+        #for query_data_sample,query_way_list in zip(query_data,query_way):
+        #grad_weight1,grad_weight2,grad_weight3,grad_weight4,grad_weight5,loss_value = grad(query_data_sample,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5,query_way_list)
+        for encoded_support_data in TCAM_array:            
+            grad_weight1,grad_weight2,grad_weight3,grad_weight4,grad_weight5,loss_value = grad(query_data,weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5,encoded_support_data,TCAM_indexing)
+            #print("loss:",loss_value)
             opt.apply_gradients(zip([grad_weight1,grad_weight2,grad_weight3,grad_weight4,grad_weight5],[weight_buf1,weight_buf2,weight_buf3,weight_buf4,weight_buf5]))
-
+            TCAM_indexing=TCAM_indexing+1
 
         TCAM_array.clear()
     
@@ -398,10 +430,10 @@ plt.plot(epoch, accuracy_list)
 plt.title('accuracy')
 plt.subplot(3,1,2)
 plt.plot(epoch, sim_loss_list)
-plt.title('similarity loss')
+plt.title('Test similarity loss')
 plt.subplot(3,1,3)
 plt.plot(epoch, dis_loss_list)
-plt.title('dissimilarity loss')
+plt.title('Test dissimilarity loss')
 
 plt.savefig('result.png', dpi=500)
 
